@@ -12,7 +12,7 @@ postinstall = "mise run install"
 
 [tasks.setup]
 description = "Recreate the environment from committed inputs"
-run = ["mise install --no-hooks", "lefthook install"]
+run = ["mise install", "lefthook install"]
 
 [tasks.fmt]
 description = "Format source"
