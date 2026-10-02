@@ -1,0 +1,12 @@
+pre-commit:
+  commands:
+    lint:
+      run: mise run lint
+commit-msg:
+  commands:
+    conventional:
+      run: grep -Eq '^(feat|fix|docs|chore|refactor|test|build|ci|perf)(\(.+\))?!?: .+' {1}
+pre-push:
+  commands:
+    ci:
+      run: mise run ci

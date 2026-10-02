@@ -1,0 +1,51 @@
+[settings]
+experimental = true
+
+[tools]
+rust = { version = "1.98.1", components = "clippy,rustfmt" }
+gitleaks = "latest"
+lefthook = "latest"
+
+# `mise install` provisions the toolchain, then installs the `slp` binary.
+[hooks]
+postinstall = "mise run install"
+
+[tasks.setup]
+description = "Recreate the environment from committed inputs"
+run = ["mise install --no-hooks", "lefthook install"]
+
+[tasks.fmt]
+description = "Format source"
+run = "cargo fmt --all"
+
+[tasks.lint]
+description = "Format check and clippy (warnings are errors)"
+run = ["cargo fmt --all -- --check", "cargo clippy --locked --all-targets -- -D warnings"]
+
+[tasks.typecheck]
+description = "Type-check all targets"
+run = "cargo check --locked --all-targets"
+
+[tasks.test]
+description = "Unit, workflow, adapter, architecture, and public-binary tests"
+run = "cargo test --locked"
+
+[tasks.scan]
+description = "Secret scan, proven by a synthetic finding"
+run = "scripts/scan.sh"
+
+[tasks.build]
+description = "Build the release binary"
+run = "cargo build --release --locked"
+
+[tasks.doctor]
+description = "Diagnose missing prerequisites"
+run = "scripts/doctor.sh"
+
+[tasks.install]
+description = "Install slp into $SLP_INSTALL_ROOT/bin (default ~/.local/bin)"
+run = 'cargo install --path . --locked --force --root "${SLP_INSTALL_ROOT:-$HOME/.local}"'
+
+[tasks.ci]
+description = "The complete non-mutating gate"
+depends = ["lint", "typecheck", "test", "scan", "build"]

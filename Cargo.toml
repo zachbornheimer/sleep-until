@@ -1,0 +1,29 @@
+[package]
+name = "slp"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "A memory-lean reimplementation of sleep with --until HH:MM"
+license = "MIT"
+
+[lib]
+name = "slp"
+path = "src/lib.rs"
+
+[[bin]]
+name = "slp"
+path = "src/main.rs"
+
+[dependencies]
+libc = "=0.2.189"
+
+[profile.release]
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
