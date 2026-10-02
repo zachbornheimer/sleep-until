@@ -12,7 +12,7 @@ slp --until 7:05:30
 
 - Clock changes and suspend: sleeps measure monotonic time, which stops while the machine is suspended. `--until` re-reads the wall clock at least every 30 seconds, so it fires within that bound of the target after a resume.
 - Daylight saving: the target is resolved by the C library (`mktime`). A time skipped by a spring-forward resolves to the shifted hour; an ambiguous fall-back time resolves to the C library's choice.
-- Memory: no runtime dependency beyond `libc`, no threads, no allocation after argument parsing. mise build and install compile for the native CPU (see scripts/cargo-native.sh), because an emulated toolchain's default target roughly doubles resident memory.
+- Memory: no runtime dependency beyond `libc`, no threads, no allocation after argument parsing. On Apple Silicon, use a native Rust toolchain (brew install rustup); an emulated x86_64 toolchain roughly doubles resident memory, and mise run doctor flags it.
 
 ## Install
 
