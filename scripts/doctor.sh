@@ -3,7 +3,7 @@
 set -euo pipefail
 
 missing=0
-for tool in cargo rustc gitleaks lefthook; do
+for tool in cargo rustc rustup gitleaks lefthook; do
   if ! command -v "$tool" >/dev/null 2>&1; then
     echo "missing: $tool (run: mise install)" >&2
     missing=1

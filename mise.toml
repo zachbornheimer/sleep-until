@@ -36,7 +36,7 @@ run = "scripts/scan.sh"
 
 [tasks.build]
 description = "Build the release binary"
-run = "cargo build --release --locked"
+run = "scripts/cargo-native.sh build --release --locked"
 
 [tasks.doctor]
 description = "Diagnose missing prerequisites"
@@ -44,7 +44,7 @@ run = "scripts/doctor.sh"
 
 [tasks.install]
 description = "Install slp into $SLP_INSTALL_ROOT/bin (default ~/.local/bin)"
-run = 'cargo install --path . --locked --force --root "${SLP_INSTALL_ROOT:-$HOME/.local}"'
+run = 'scripts/cargo-native.sh install --path . --locked --force --root "${SLP_INSTALL_ROOT:-$HOME/.local}"'
 
 [tasks.ci]
 description = "The complete non-mutating gate"
