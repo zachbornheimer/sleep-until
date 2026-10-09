@@ -4,6 +4,7 @@ use crate::time_of_day::TimeOfDay;
 
 const DATE_TIME_SEPARATORS: [char; 2] = [' ', 'T'];
 const DATE_FIELD_SEPARATOR: char = '-';
+const DATE_FIELD_SEPARATOR_BYTE: u8 = b'-';
 const YEAR_DIGITS: usize = 4;
 const MONTH_OR_DAY_DIGITS: usize = 2;
 const FEBRUARY: u8 = 2;
@@ -48,7 +49,10 @@ impl fmt::Display for CalendarDate {
 /// Whether `text` is meant as a date and time rather than a bare time of day.
 #[must_use]
 pub fn looks_like_date_time(text: &str) -> bool {
-    text.contains(DATE_TIME_SEPARATORS) || text.contains(DATE_FIELD_SEPARATOR)
+    let bytes = text.as_bytes();
+    bytes.len() > YEAR_DIGITS
+        && bytes[..YEAR_DIGITS].iter().all(u8::is_ascii_digit)
+        && bytes[YEAR_DIGITS] == DATE_FIELD_SEPARATOR_BYTE
 }
 
 /// Parses `YYYY-MM-DD HH:MM[:SS]` or `YYYY-MM-DDTHH:MM[:SS]`.
@@ -159,6 +163,16 @@ mod tests {
             "+999-01-01 10:00",
         ] {
             assert_eq!(parse_date_time(bad), None, "{bad:?}");
+        }
+    }
+
+    #[test]
+    fn only_a_year_led_prefix_routes_to_the_date_path() {
+        for date_like in ["2999-12-31", "2999-12-31 10:00", "2999-1-1T10:00", "2999-"] {
+            assert!(looks_like_date_time(date_like), "{date_like:?}");
+        }
+        for time_like in ["-5", "10:00 ", "10:00", " 10:00", "T10:00", "99-12-31", ""] {
+            assert!(!looks_like_date_time(time_like), "{time_like:?}");
         }
     }
 

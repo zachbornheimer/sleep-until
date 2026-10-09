@@ -148,6 +148,17 @@ mod tests {
     }
 
     #[test]
+    fn until_text_that_is_not_year_led_keeps_the_time_of_day_error() {
+        for bad in ["-5", "10:00 ", "T10:00", "25:00"] {
+            assert_eq!(
+                parse(&["--until", bad]),
+                Err(Failure::InvalidTimeOfDay(bad.into())),
+                "{bad:?}"
+            );
+        }
+    }
+
+    #[test]
     fn dry_run_wraps_the_schedule_wherever_the_flag_appears() {
         let dry = Ok(Request::DryRun(Schedule::After(Duration::from_secs(90))));
         assert_eq!(parse(&["--dry-run", "1m30s"]), dry);
