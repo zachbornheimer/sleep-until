@@ -25,6 +25,22 @@ fn sleeps_the_requested_interval() {
 }
 
 #[test]
+fn sleeps_a_compound_interval_across_operands() {
+    let started = Instant::now();
+    let out = slp(&["0.1s0.1s", "0.1s"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    assert!(started.elapsed() >= Duration::from_millis(300));
+    assert!(started.elapsed() < Duration::from_secs(3));
+}
+
+#[test]
+fn trailing_bare_number_in_a_compound_is_invalid() {
+    let out = slp(&["1h30"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(text(&out.stderr).contains("slp: invalid time interval '1h30'"));
+}
+
+#[test]
 fn until_waits_for_the_next_matching_second() {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
