@@ -4,7 +4,6 @@ use crate::time_of_day::TimeOfDay;
 
 const DATE_TIME_SEPARATORS: [char; 2] = [' ', 'T'];
 const DATE_FIELD_SEPARATOR: char = '-';
-const DATE_FIELD_SEPARATOR_BYTE: u8 = b'-';
 const YEAR_DIGITS: usize = 4;
 const MONTH_OR_DAY_DIGITS: usize = 2;
 const FEBRUARY: u8 = 2;
@@ -52,7 +51,7 @@ pub fn looks_like_date_time(text: &str) -> bool {
     let bytes = text.as_bytes();
     bytes.len() > YEAR_DIGITS
         && bytes[..YEAR_DIGITS].iter().all(u8::is_ascii_digit)
-        && bytes[YEAR_DIGITS] == DATE_FIELD_SEPARATOR_BYTE
+        && char::from(bytes[YEAR_DIGITS]) == DATE_FIELD_SEPARATOR
 }
 
 /// Parses `YYYY-MM-DD HH:MM[:SS]` or `YYYY-MM-DDTHH:MM[:SS]`.
