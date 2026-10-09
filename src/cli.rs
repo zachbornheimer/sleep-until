@@ -17,9 +17,12 @@ pub enum Request {
     Help,
     Version,
     Wait(Schedule),
+    /// Report when the schedule would end, without waiting.
+    DryRun(Schedule),
 }
 
 const UNTIL_FLAG: &str = "--until";
+const DRY_RUN_FLAGS: [&str; 2] = ["-n", "--dry-run"];
 
 /// Turns the command line (without the program name) into a [`Request`].
 ///
@@ -30,6 +33,7 @@ pub fn parse_request(args: impl IntoIterator<Item = OsString>) -> Result<Request
     let mut total: Option<Duration> = None;
     let mut until: Option<TimeOfDay> = None;
     let mut operands_only = false;
+    let mut dry_run = false;
 
     while let Some(arg) = args.next() {
         let text = arg.to_string_lossy();
@@ -37,6 +41,8 @@ pub fn parse_request(args: impl IntoIterator<Item = OsString>) -> Result<Request
             total = Some(add_operand(total, &arg)?);
         } else if text == "--" {
             operands_only = true;
+        } else if DRY_RUN_FLAGS.contains(&&*text) {
+            dry_run = true;
         } else if text == "--help" {
             return Ok(Request::Help);
         } else if text == "--version" {
@@ -51,12 +57,17 @@ pub fn parse_request(args: impl IntoIterator<Item = OsString>) -> Result<Request
         }
     }
 
-    match (total, until) {
-        (Some(_), Some(_)) => Err(Failure::UntilWithInterval),
-        (Some(total), None) => Ok(Request::Wait(Schedule::After(total))),
-        (None, Some(time)) => Ok(Request::Wait(Schedule::At(time))),
-        (None, None) => Err(Failure::MissingOperand),
-    }
+    let schedule = match (total, until) {
+        (Some(_), Some(_)) => return Err(Failure::UntilWithInterval),
+        (Some(total), None) => Schedule::After(total),
+        (None, Some(time)) => Schedule::At(time),
+        (None, None) => return Err(Failure::MissingOperand),
+    };
+    Ok(if dry_run {
+        Request::DryRun(schedule)
+    } else {
+        Request::Wait(schedule)
+    })
 }
 
 fn add_operand(total: Option<Duration>, operand: &OsString) -> Result<Duration, Failure> {
@@ -98,6 +109,21 @@ mod tests {
         )));
         assert_eq!(parse(&["--until", "14:39"]), at);
         assert_eq!(parse(&["--until=14:39"]), at);
+    }
+
+    #[test]
+    fn dry_run_wraps_the_schedule_wherever_the_flag_appears() {
+        let dry = Ok(Request::DryRun(Schedule::After(Duration::from_secs(90))));
+        assert_eq!(parse(&["--dry-run", "1m30s"]), dry);
+        assert_eq!(parse(&["1m", "-n", "30"]), dry);
+        assert_eq!(parse(&["-n", "--dry-run", "90"]), dry);
+        assert_eq!(
+            parse(&["-n", "--until", "14:39"]),
+            Ok(Request::DryRun(Schedule::At(
+                TimeOfDay::new(14, 39, 0).unwrap()
+            )))
+        );
+        assert_eq!(parse(&["-n"]), Err(Failure::MissingOperand));
     }
 
     #[test]

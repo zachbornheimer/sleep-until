@@ -58,6 +58,33 @@ impl Calendar for LocalCalendar {
             .map(|secs| WallInstant::since_epoch(Duration::from_secs(secs)))
             .map_err(|_| CalendarUnavailable)
     }
+
+    fn format_local(&self, at: WallInstant) -> Result<String, CalendarUnavailable> {
+        let seconds =
+            libc::time_t::try_from(at.whole_seconds()).map_err(|_| CalendarUnavailable)?;
+        format_broken_down(&local_broken_down(seconds)?)
+    }
+}
+
+const LOCAL_FORMAT: &[u8] = b"%Y-%m-%d %H:%M:%S %z\0";
+const FORMATTED_CAPACITY: usize = 64;
+
+fn format_broken_down(broken_down: &libc::tm) -> Result<String, CalendarUnavailable> {
+    let mut buffer = [0u8; FORMATTED_CAPACITY];
+    // SAFETY: `buffer` is writable for its full length, `LOCAL_FORMAT` is NUL-terminated,
+    // and `broken_down` is a valid `tm`.
+    let written = unsafe {
+        libc::strftime(
+            buffer.as_mut_ptr().cast(),
+            buffer.len(),
+            LOCAL_FORMAT.as_ptr().cast(),
+            broken_down,
+        )
+    };
+    if written == 0 {
+        return Err(CalendarUnavailable);
+    }
+    String::from_utf8(buffer[..written].to_vec()).map_err(|_| CalendarUnavailable)
 }
 
 fn local_broken_down(seconds: libc::time_t) -> Result<libc::tm, CalendarUnavailable> {

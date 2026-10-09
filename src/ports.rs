@@ -24,6 +24,12 @@ impl WallInstant {
         self.0.as_secs()
     }
 
+    /// This instant moved `later` ahead; `None` when that is not representable.
+    #[must_use]
+    pub fn checked_after(self, later: Duration) -> Option<Self> {
+        self.0.checked_add(later).map(Self)
+    }
+
     /// Time remaining until `later`; zero when `later` is not ahead.
     #[must_use]
     pub fn until(self, later: Self) -> Duration {
@@ -53,6 +59,12 @@ pub trait Calendar {
         time: TimeOfDay,
         around: WallInstant,
     ) -> Result<WallInstant, CalendarUnavailable>;
+
+    /// `at` as local time, formatted `YYYY-MM-DD HH:MM:SS +ZZZZ`.
+    ///
+    /// # Errors
+    /// Fails when `at` cannot be expressed in the local time zone.
+    fn format_local(&self, at: WallInstant) -> Result<String, CalendarUnavailable>;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -39,6 +39,17 @@ pub fn wait(schedule: Schedule, deps: &Dependencies) -> Result<(), Failure> {
     }
 }
 
+/// When `schedule` would end if started now; `None` means never.
+///
+/// # Errors
+/// Fails only when a time of day cannot be resolved in the local time zone.
+pub fn wake_time(schedule: Schedule, deps: &Dependencies) -> Result<Option<WallInstant>, Failure> {
+    match schedule {
+        Schedule::After(interval) => Ok(deps.clock.now().checked_after(interval)),
+        Schedule::At(time) => observe_target(time, deps).map(Some),
+    }
+}
+
 fn wait_until(time: TimeOfDay, deps: &Dependencies) -> Result<(), Failure> {
     let target = observe_target(time, deps)?;
     loop {

@@ -22,6 +22,12 @@ fn resolve(day: LocalDay, hour: u8, minute: u8, around: u64) -> u64 {
         .whole_seconds()
 }
 
+fn format_at(secs: u64) -> String {
+    LocalCalendar
+        .format_local(WallInstant::since_epoch(Duration::from_secs(secs)))
+        .unwrap()
+}
+
 #[test]
 fn resolves_in_the_local_zone_including_dst_days() {
     // SAFETY: this is the only test in this binary, so nothing else reads the environment.
@@ -31,10 +37,12 @@ fn resolves_in_the_local_zone_including_dst_days() {
         NOON_UTC + 2 * 3600 + 39 * 60
     );
     assert_eq!(resolve(LocalDay::Tomorrow, 12, 0, NOON_UTC), NOON_UTC + DAY);
+    assert_eq!(format_at(NOON_UTC), "2026-01-15 12:00:00 +0000");
 
     // India has a +05:30 offset and no DST.
     unsafe { std::env::set_var("TZ", "Asia/Kolkata") };
     assert_eq!(resolve(LocalDay::Today, 17, 30, NOON_UTC), NOON_UTC);
+    assert_eq!(format_at(NOON_UTC), "2026-01-15 17:30:00 +0530");
 
     // New York springs forward 2026-03-08: 24h after local noon on the 7th is 13:00 local.
     unsafe { std::env::set_var("TZ", "America/New_York") };

@@ -5,9 +5,10 @@ use std::time::Duration;
 
 use slp::cli::Schedule;
 use slp::failure::Failure;
+use slp::interval::FOREVER;
 use slp::ports::{Calendar, CalendarUnavailable, Clock, LocalDay, Sleeper, WallInstant};
 use slp::time_of_day::TimeOfDay;
-use slp::wait::{Dependencies, MAX_SLICE, wait};
+use slp::wait::{wait, wake_time, Dependencies, MAX_SLICE};
 
 const TODAY_TARGET: u64 = 1_000;
 const TOMORROW_TARGET: u64 = 1_000 + 86_400;
@@ -57,6 +58,11 @@ impl Calendar for FixedCalendar {
         };
         Ok(WallInstant::since_epoch(Duration::from_secs(secs)))
     }
+
+    fn format_local(&self, at: WallInstant) -> Result<String, CalendarUnavailable> {
+        self.0?;
+        Ok(format!("@{}", at.whole_seconds()))
+    }
 }
 
 fn until_target(timeline: &Timeline, calendar: &FixedCalendar) -> Result<(), Failure> {
@@ -90,13 +96,11 @@ fn until_waits_for_a_target_later_today_in_slices() {
     let timeline = Timeline::starting_at(900.0);
     until_target(&timeline, &FixedCalendar(Ok(()))).unwrap();
     assert_eq!(total(&timeline), Duration::from_secs(100));
-    assert!(
-        timeline
-            .slept
-            .borrow()
-            .iter()
-            .all(|slice| *slice <= MAX_SLICE)
-    );
+    assert!(timeline
+        .slept
+        .borrow()
+        .iter()
+        .all(|slice| *slice <= MAX_SLICE));
 }
 
 #[test]
@@ -122,4 +126,53 @@ fn unavailable_calendar_is_a_failure_not_a_hang() {
     let result = until_target(&timeline, &FixedCalendar(Err(CalendarUnavailable)));
     assert_eq!(result, Err(Failure::LocalTimeUnavailable));
     assert!(timeline.slept.borrow().is_empty());
+}
+
+fn deps_of<'a>(timeline: &'a Timeline, calendar: &'a FixedCalendar) -> Dependencies<'a> {
+    Dependencies {
+        clock: timeline,
+        calendar,
+        sleeper: timeline,
+    }
+}
+
+fn instant(secs: u64) -> WallInstant {
+    WallInstant::since_epoch(Duration::from_secs(secs))
+}
+
+#[test]
+fn wake_time_of_an_interval_is_now_plus_interval_without_sleeping() {
+    let timeline = Timeline::starting_at(100.0);
+    let calendar = FixedCalendar(Ok(()));
+    let target = wake_time(
+        Schedule::After(Duration::from_secs(90)),
+        &deps_of(&timeline, &calendar),
+    );
+    assert_eq!(target, Ok(Some(instant(190))));
+    assert!(timeline.slept.borrow().is_empty());
+}
+
+#[test]
+fn wake_time_of_forever_is_never() {
+    let timeline = Timeline::starting_at(100.0);
+    let calendar = FixedCalendar(Ok(()));
+    let target = wake_time(Schedule::After(FOREVER), &deps_of(&timeline, &calendar));
+    assert_eq!(target, Ok(None));
+}
+
+#[test]
+fn wake_time_of_a_time_of_day_follows_the_today_or_tomorrow_rule() {
+    let calendar = FixedCalendar(Ok(()));
+    let schedule = Schedule::At(TimeOfDay::new(0, 16, 40).unwrap());
+    let before = Timeline::starting_at(900.0);
+    assert_eq!(
+        wake_time(schedule, &deps_of(&before, &calendar)),
+        Ok(Some(instant(TODAY_TARGET)))
+    );
+    let after = Timeline::starting_at(1_001.0);
+    assert_eq!(
+        wake_time(schedule, &deps_of(&after, &calendar)),
+        Ok(Some(instant(TOMORROW_TARGET)))
+    );
+    assert!(before.slept.borrow().is_empty() && after.slept.borrow().is_empty());
 }

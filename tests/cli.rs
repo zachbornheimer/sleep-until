@@ -64,6 +64,39 @@ fn until_waits_for_the_next_matching_second() {
 }
 
 #[test]
+fn dry_run_of_forever_prints_never_and_does_not_sleep() {
+    let started = Instant::now();
+    for flag in ["--dry-run", "-n"] {
+        let out = slp(&[flag, "inf"]);
+        assert!(out.status.success(), "{}", text(&out.stderr));
+        assert_eq!(text(&out.stdout), "wake at never\n");
+    }
+    assert!(started.elapsed() < Duration::from_secs(2));
+}
+
+#[test]
+fn dry_run_of_an_interval_prints_the_local_wake_time_without_sleeping() {
+    let started = Instant::now();
+    let out = slp(&["--dry-run", "1h30m"]);
+    assert!(out.status.success(), "{}", text(&out.stderr));
+    let line = text(&out.stdout);
+    let stamp = line.strip_prefix("wake at ").unwrap().trim_end();
+    let shape: Vec<usize> = stamp.split([' ', '-', ':']).map(str::len).collect();
+    assert_eq!(shape, [4, 2, 2, 2, 2, 2, 5], "{line:?}");
+    assert!(stamp.ends_with(" +0000"));
+    assert!(started.elapsed() < Duration::from_secs(2));
+}
+
+#[test]
+fn help_and_version_win_over_dry_run() {
+    let help = slp(&["--dry-run", "5", "--help"]);
+    assert!(text(&help.stdout).starts_with("Usage: slp"));
+    let version = slp(&["-n", "5", "--version"]);
+    assert!(text(&version.stdout).starts_with("slp "));
+    assert!(text(&slp(&["--help"]).stdout).contains("--dry-run"));
+}
+
+#[test]
 fn bad_input_exits_one_with_a_message_on_stderr() {
     for (args, message) in [
         (vec![], "slp: missing operand"),

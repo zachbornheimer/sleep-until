@@ -4,10 +4,12 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
 
-use crate::cli::{Request, parse_request};
-use crate::wait::{Dependencies, wait};
+use crate::cli::{parse_request, Request, Schedule};
+use crate::failure::Failure;
+use crate::wait::{wait, wake_time, Dependencies};
 
 const PROGRAM: &str = "slp";
+const NEVER: &str = "never";
 
 const HELP: &str = "\
 Usage: slp NUMBER[SUFFIX]...
@@ -22,6 +24,8 @@ Given multiple arguments, pause for the amount of time specified by the sum.
 passed yet, otherwise tomorrow. It cannot be combined with NUMBER arguments.
 
       --until TIME  pause until TIME in local time
+  -n, --dry-run     print the local wake time ('wake at YYYY-MM-DD HH:MM:SS +ZZZZ',
+                    or 'wake at never') and exit without pausing
       --help        display this help and exit
       --version     output version information and exit
 ";
@@ -43,6 +47,11 @@ pub fn run(
             Ok(())
         }
         Request::Wait(schedule) => wait(schedule, deps),
+        Request::DryRun(schedule) => {
+            let line = wake_line(schedule, deps)?;
+            print(out, &line);
+            Ok(())
+        }
     });
     let Err(failure) = outcome else {
         return ExitCode::SUCCESS;
@@ -55,6 +64,17 @@ pub fn run(
         );
     }
     ExitCode::FAILURE
+}
+
+fn wake_line(schedule: Schedule, deps: &Dependencies) -> Result<String, Failure> {
+    let when = match wake_time(schedule, deps)? {
+        Some(instant) => deps
+            .calendar
+            .format_local(instant)
+            .map_err(|_| Failure::LocalTimeUnavailable)?,
+        None => NEVER.to_owned(),
+    };
+    Ok(format!("wake at {when}\n"))
 }
 
 fn version_line() -> String {
