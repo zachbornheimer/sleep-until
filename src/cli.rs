@@ -1,7 +1,7 @@
 use std::ffi::OsString;
 use std::time::Duration;
 
-use crate::calendar_date::{looks_like_date_time, parse_date_time, CalendarDate};
+use crate::calendar_date::{CalendarDate, looks_like_date_time, parse_date_time};
 use crate::failure::Failure;
 use crate::interval::parse_interval;
 use crate::time_of_day::TimeOfDay;

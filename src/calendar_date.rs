@@ -75,11 +75,7 @@ fn parse_date(text: &str) -> Option<CalendarDate> {
 
 fn digits(text: &str, width: usize) -> Option<u16> {
     let valid = text.len() == width && text.bytes().all(|b| b.is_ascii_digit());
-    if valid {
-        text.parse().ok()
-    } else {
-        None
-    }
+    if valid { text.parse().ok() } else { None }
 }
 
 fn days_in_month(year: u16, month: u8) -> u8 {

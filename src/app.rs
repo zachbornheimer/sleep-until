@@ -4,9 +4,9 @@ use std::ffi::OsString;
 use std::io::Write;
 use std::process::ExitCode;
 
-use crate::cli::{parse_request, Request, Schedule};
+use crate::cli::{Request, Schedule, parse_request};
 use crate::failure::Failure;
-use crate::wait::{wait, wake_time, Dependencies};
+use crate::wait::{Dependencies, wait, wake_time};
 
 const PROGRAM: &str = "slp";
 const NEVER: &str = "never";

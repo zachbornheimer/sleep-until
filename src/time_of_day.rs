@@ -60,11 +60,7 @@ impl fmt::Display for TimeOfDay {
 
 fn field(text: &str) -> Option<u8> {
     let valid = matches!(text.len(), 1..=2) && text.bytes().all(|b| b.is_ascii_digit());
-    if valid {
-        text.parse().ok()
-    } else {
-        None
-    }
+    if valid { text.parse().ok() } else { None }
 }
 
 #[cfg(test)]

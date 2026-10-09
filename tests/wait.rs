@@ -9,7 +9,7 @@ use slp::failure::Failure;
 use slp::interval::FOREVER;
 use slp::ports::{Calendar, CalendarUnavailable, Clock, LocalDay, Sleeper, WallInstant};
 use slp::time_of_day::TimeOfDay;
-use slp::wait::{wait, wake_time, Dependencies, MAX_SLICE};
+use slp::wait::{Dependencies, MAX_SLICE, wait, wake_time};
 
 const TODAY_TARGET: u64 = 1_000;
 const TOMORROW_TARGET: u64 = 1_000 + 86_400;
@@ -98,11 +98,13 @@ fn until_waits_for_a_target_later_today_in_slices() {
     let timeline = Timeline::starting_at(900.0);
     until_target(&timeline, &FixedCalendar(Ok(()))).unwrap();
     assert_eq!(total(&timeline), Duration::from_secs(100));
-    assert!(timeline
-        .slept
-        .borrow()
-        .iter()
-        .all(|slice| *slice <= MAX_SLICE));
+    assert!(
+        timeline
+            .slept
+            .borrow()
+            .iter()
+            .all(|slice| *slice <= MAX_SLICE)
+    );
 }
 
 #[test]
@@ -209,11 +211,13 @@ fn dated_until_waits_for_the_date_in_slices() {
     let calendar = FixedCalendar(Ok(()));
     wait(dated_schedule(), &deps_of(&timeline, &calendar)).unwrap();
     assert_eq!(total(&timeline), Duration::from_secs(1_000));
-    assert!(timeline
-        .slept
-        .borrow()
-        .iter()
-        .all(|slice| *slice <= MAX_SLICE));
+    assert!(
+        timeline
+            .slept
+            .borrow()
+            .iter()
+            .all(|slice| *slice <= MAX_SLICE)
+    );
 }
 
 #[test]
