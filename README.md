@@ -30,27 +30,33 @@ mise install   # installs the Rust toolchain, then builds and installs slp
 
 ## Usage
 
-| Command               | What it does                                           |
-| --------------------- | ------------------------------------------------------ |
-| `slp 90`              | Pause 90 seconds.                                      |
-| `slp 1.5m 30`         | Pause 2 minutes (90 s + 30 s). Arguments are added.    |
-| `slp 2h`              | Pause 2 hours.                                         |
-| `slp 1d`              | Pause 1 day.                                           |
-| `slp inf`             | Pause forever.                                         |
-| `slp --until 14:39`   | Pause until 14:39 local time.                          |
-| `slp --until 7:05:30` | Pause until 07:05:30 local time.                       |
-| `slp --until=14:39`   | Same as `--until 14:39`.                               |
-| `slp -- 0.1`          | `--` ends options; everything after it is an interval. |
-| `slp --help`          | Print usage and exit.                                  |
-| `slp --version`       | Print the version and exit.                            |
+| Command                          | What it does                                           |
+| -------------------------------- | ------------------------------------------------------ |
+| `slp 90`                         | Pause 90 seconds.                                      |
+| `slp 1.5m 30`                    | Pause 2 minutes (90 s + 30 s). Arguments are added.    |
+| `slp 2h`                         | Pause 2 hours.                                         |
+| `slp 1d`                         | Pause 1 day.                                           |
+| `slp 1h30m`                      | Pause 1 hour 30 minutes. Also `2m30s`, `1.5h`.         |
+| `slp inf`                        | Pause forever.                                         |
+| `slp --until 14:39`              | Pause until 14:39 local time.                          |
+| `slp --until 7:05:30`            | Pause until 07:05:30 local time.                       |
+| `slp --until=14:39`              | Same as `--until 14:39`.                               |
+| `slp --until '2026-10-10 07:00'` | Pause until that date and time.                        |
+| `slp -n 1h30m`                   | Print the wake time and exit without pausing.          |
+| `slp -- 0.1`                     | `--` ends options; everything after it is an interval. |
+| `slp --help`                     | Print usage and exit.                                  |
+| `slp --version`                  | Print the version and exit.                            |
 
 Rules:
 
 - Suffixes are `s` (seconds, the default), `m`, `h`, and `d`.
 - Numbers can be decimal (`0.5`, `.5`, `1e1`). Negative numbers are rejected.
 - Several arguments are added together.
+- Segments can be joined: `1h30m`, `2m30s`. Every segment needs a suffix, so `1h30` is rejected. `inf` must be the whole argument.
 - `inf` and `infinity` mean forever. So does a number too large to represent.
 - `--until` takes `HH:MM` or `HH:MM:SS` in 24-hour local time, with one or two digits per field. If that time has already passed today, `slp` waits for tomorrow.
+- `--until 'YYYY-MM-DD HH:MM[:SS]'` waits for that local moment. A `T` can replace the space before the time. A target in the past is an error.
+- `-n` / `--dry-run` prints `wake at YYYY-MM-DD HH:MM:SS +ZZZZ` (or `wake at never` for `inf`) and exits 0 without sleeping. `--help` and `--version` win.
 - `--until` cannot be combined with intervals and cannot be given twice.
 
 ## Exit status and errors
@@ -69,6 +75,23 @@ Try 'slp --help' for more information.
 $ slp --until 14:39 5
 slp: '--until' cannot be combined with a time interval
 Try 'slp --help' for more information.
+
+$ slp 1h30
+slp: invalid time interval '1h30'
+Try 'slp --help' for more information.
+
+$ slp --until '2020-01-01 00:00'
+slp: --until 2020-01-01 00:00 has already passed
+```
+
+Dry run, with `TZ=UTC`:
+
+```text
+$ slp -n --until '2026-10-10 07:00'
+wake at 2026-10-10 07:00:00 +0000
+
+$ slp -n inf
+wake at never
 ```
 
 ## Behavior notes
