@@ -1,15 +1,18 @@
 use std::ffi::OsString;
 use std::time::Duration;
 
+use crate::calendar_date::{looks_like_date_time, parse_date_time, CalendarDate};
 use crate::failure::Failure;
 use crate::interval::parse_interval;
 use crate::time_of_day::TimeOfDay;
 
-/// How long to wait: a fixed interval, or until the next local occurrence of a time of day.
+/// How long to wait: a fixed interval, until the next local occurrence of a time of day,
+/// or until a time on an explicit local date.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Schedule {
     After(Duration),
     At(TimeOfDay),
+    On(CalendarDate, TimeOfDay),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,7 +34,7 @@ const DRY_RUN_FLAGS: [&str; 2] = ["-n", "--dry-run"];
 pub fn parse_request(args: impl IntoIterator<Item = OsString>) -> Result<Request, Failure> {
     let mut args = args.into_iter();
     let mut total: Option<Duration> = None;
-    let mut until: Option<TimeOfDay> = None;
+    let mut until: Option<Schedule> = None;
     let mut operands_only = false;
     let mut dry_run = false;
 
@@ -60,7 +63,7 @@ pub fn parse_request(args: impl IntoIterator<Item = OsString>) -> Result<Request
     let schedule = match (total, until) {
         (Some(_), Some(_)) => return Err(Failure::UntilWithInterval),
         (Some(total), None) => Schedule::After(total),
-        (None, Some(time)) => Schedule::At(time),
+        (None, Some(until)) => until,
         (None, None) => return Err(Failure::MissingOperand),
     };
     Ok(if dry_run {
@@ -76,12 +79,19 @@ fn add_operand(total: Option<Duration>, operand: &OsString) -> Result<Duration, 
     Ok(total.unwrap_or_default().saturating_add(interval))
 }
 
-fn set_until(existing: Option<TimeOfDay>, value: &std::ffi::OsStr) -> Result<TimeOfDay, Failure> {
+fn set_until(existing: Option<Schedule>, value: &std::ffi::OsStr) -> Result<Schedule, Failure> {
     if existing.is_some() {
         return Err(Failure::DuplicateUntil);
     }
     let text = value.to_string_lossy();
-    TimeOfDay::parse(&text).ok_or_else(|| Failure::InvalidTimeOfDay(text.into_owned()))
+    if looks_like_date_time(&text) {
+        return parse_date_time(&text)
+            .map(|(date, time)| Schedule::On(date, time))
+            .ok_or_else(|| Failure::InvalidDateTime(text.into_owned()));
+    }
+    TimeOfDay::parse(&text)
+        .map(Schedule::At)
+        .ok_or_else(|| Failure::InvalidTimeOfDay(text.into_owned()))
 }
 
 #[cfg(test)]
@@ -109,6 +119,32 @@ mod tests {
         )));
         assert_eq!(parse(&["--until", "14:39"]), at);
         assert_eq!(parse(&["--until=14:39"]), at);
+    }
+
+    #[test]
+    fn until_accepts_a_date_and_time() {
+        let on = Ok(Request::Wait(Schedule::On(
+            CalendarDate::new(2999, 12, 31).unwrap(),
+            TimeOfDay::new(23, 59, 30).unwrap(),
+        )));
+        assert_eq!(parse(&["--until", "2999-12-31 23:59:30"]), on);
+        assert_eq!(parse(&["--until=2999-12-31T23:59:30"]), on);
+    }
+
+    #[test]
+    fn until_rejects_impossible_dates() {
+        for bad in [
+            "2999-13-01 10:00",
+            "2999-02-30 10:00",
+            "2999-12-31",
+            "2999-12-31T",
+        ] {
+            assert_eq!(
+                parse(&["--until", bad]),
+                Err(Failure::InvalidDateTime(bad.into())),
+                "{bad:?}"
+            );
+        }
     }
 
     #[test]

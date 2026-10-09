@@ -1,6 +1,7 @@
 //! slp: sleep for an interval, or until a local time of day.
 
 pub mod app;
+pub mod calendar_date;
 pub mod cli;
 pub mod failure;
 pub mod interval;

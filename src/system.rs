@@ -49,14 +49,20 @@ impl Calendar for LocalCalendar {
         broken_down.tm_min = time.minute().into();
         broken_down.tm_sec = time.second().into();
         broken_down.tm_isdst = -1; // let the C library choose standard or daylight time
-        if day == LocalDay::Tomorrow {
-            broken_down.tm_mday += 1; // mktime normalizes month and year rollover
+        match day {
+            LocalDay::Today => {}
+            LocalDay::Tomorrow => broken_down.tm_mday += 1, // mktime normalizes rollover
+            LocalDay::On(date) => {
+                broken_down.tm_year = libc::c_int::from(date.year()) - TM_YEAR_BASE;
+                broken_down.tm_mon = libc::c_int::from(date.month()) - 1;
+                broken_down.tm_mday = date.day().into();
+            }
         }
         // SAFETY: `broken_down` is a fully initialized, exclusively borrowed `tm`.
         let resolved = unsafe { libc::mktime(&raw mut broken_down) };
-        u64::try_from(resolved)
-            .map(|secs| WallInstant::since_epoch(Duration::from_secs(secs)))
-            .map_err(|_| CalendarUnavailable)
+        // Before the epoch is simply long past: the epoch is a faithful stand-in.
+        let secs = u64::try_from(resolved).unwrap_or_default();
+        Ok(WallInstant::since_epoch(Duration::from_secs(secs)))
     }
 
     fn format_local(&self, at: WallInstant) -> Result<String, CalendarUnavailable> {
@@ -66,6 +72,8 @@ impl Calendar for LocalCalendar {
     }
 }
 
+/// `tm_year` counts years since 1900.
+const TM_YEAR_BASE: libc::c_int = 1900;
 const LOCAL_FORMAT: &[u8] = b"%Y-%m-%d %H:%M:%S %z\0";
 const FORMATTED_CAPACITY: usize = 64;
 

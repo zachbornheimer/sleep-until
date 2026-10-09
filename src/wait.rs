@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use crate::calendar_date::CalendarDate;
 use crate::cli::Schedule;
 use crate::failure::Failure;
 use crate::ports::{Calendar, Clock, LocalDay, Sleeper, WallInstant};
@@ -35,7 +36,8 @@ pub fn wait(schedule: Schedule, deps: &Dependencies) -> Result<(), Failure> {
             execute(Plan::Sleep(interval), deps.sleeper);
             Ok(())
         }
-        Schedule::At(time) => wait_until(time, deps),
+        Schedule::At(time) => wait_until(next_occurrence(time, deps)?, deps),
+        Schedule::On(date, time) => wait_until(dated_target(date, time, deps)?, deps),
     }
 }
 
@@ -46,12 +48,12 @@ pub fn wait(schedule: Schedule, deps: &Dependencies) -> Result<(), Failure> {
 pub fn wake_time(schedule: Schedule, deps: &Dependencies) -> Result<Option<WallInstant>, Failure> {
     match schedule {
         Schedule::After(interval) => Ok(deps.clock.now().checked_after(interval)),
-        Schedule::At(time) => observe_target(time, deps).map(Some),
+        Schedule::At(time) => next_occurrence(time, deps).map(Some),
+        Schedule::On(date, time) => dated_target(date, time, deps).map(Some),
     }
 }
 
-fn wait_until(time: TimeOfDay, deps: &Dependencies) -> Result<(), Failure> {
-    let target = observe_target(time, deps)?;
+fn wait_until(target: WallInstant, deps: &Dependencies) -> Result<(), Failure> {
     loop {
         let plan = decide(deps.clock.now(), target);
         if plan == Plan::Done {
@@ -62,19 +64,40 @@ fn wait_until(time: TimeOfDay, deps: &Dependencies) -> Result<(), Failure> {
 }
 
 /// Today's occurrence of `time`, or tomorrow's once today's second has passed.
-fn observe_target(time: TimeOfDay, deps: &Dependencies) -> Result<WallInstant, Failure> {
+fn next_occurrence(time: TimeOfDay, deps: &Dependencies) -> Result<WallInstant, Failure> {
     let now = deps.clock.now();
-    let resolve = |day| {
-        deps.calendar
-            .resolve(day, time, now)
-            .map_err(|_| Failure::LocalTimeUnavailable)
-    };
-    let today = resolve(LocalDay::Today)?;
+    let today = resolve_on(LocalDay::Today, time, now, deps)?;
     if today.whole_seconds() < now.whole_seconds() {
-        resolve(LocalDay::Tomorrow)
+        resolve_on(LocalDay::Tomorrow, time, now, deps)
     } else {
         Ok(today)
     }
+}
+
+/// `time` on `date`; a moment whose second has already passed is an error, not a wrap-around.
+fn dated_target(
+    date: CalendarDate,
+    time: TimeOfDay,
+    deps: &Dependencies,
+) -> Result<WallInstant, Failure> {
+    let now = deps.clock.now();
+    let target = resolve_on(LocalDay::On(date), time, now, deps)?;
+    if target.whole_seconds() < now.whole_seconds() {
+        Err(Failure::UntilPassed(date, time))
+    } else {
+        Ok(target)
+    }
+}
+
+fn resolve_on(
+    day: LocalDay,
+    time: TimeOfDay,
+    around: WallInstant,
+    deps: &Dependencies,
+) -> Result<WallInstant, Failure> {
+    deps.calendar
+        .resolve(day, time, around)
+        .map_err(|_| Failure::LocalTimeUnavailable)
 }
 
 #[must_use]

@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use crate::calendar_date::CalendarDate;
 use crate::time_of_day::TimeOfDay;
 
 /// A point on the wall clock, as time since the Unix epoch.
@@ -37,11 +38,12 @@ impl WallInstant {
     }
 }
 
-/// Which local calendar day a time of day is resolved on, relative to an instant.
+/// Which local calendar day a time of day is resolved on: relative to an instant, or explicit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LocalDay {
     Today,
     Tomorrow,
+    On(CalendarDate),
 }
 
 pub trait Clock {
@@ -49,7 +51,8 @@ pub trait Clock {
 }
 
 pub trait Calendar {
-    /// The instant `time` occurs on `day`, in local time, where `day` is relative to `around`.
+    /// The instant `time` occurs on `day`, in local time, where a relative `day` is relative to
+    /// `around`. Dates before the Unix epoch resolve to the epoch.
     ///
     /// # Errors
     /// Fails when the local time zone cannot be resolved.

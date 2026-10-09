@@ -3,6 +3,7 @@
 use std::cell::{Cell, RefCell};
 use std::time::Duration;
 
+use slp::calendar_date::CalendarDate;
 use slp::cli::Schedule;
 use slp::failure::Failure;
 use slp::interval::FOREVER;
@@ -12,6 +13,7 @@ use slp::wait::{wait, wake_time, Dependencies, MAX_SLICE};
 
 const TODAY_TARGET: u64 = 1_000;
 const TOMORROW_TARGET: u64 = 1_000 + 86_400;
+const DATED_TARGET: u64 = 5_000;
 
 /// Sleeping advances the clock, so the workflow sees time pass.
 struct Timeline {
@@ -51,10 +53,10 @@ impl Calendar for FixedCalendar {
         _: WallInstant,
     ) -> Result<WallInstant, CalendarUnavailable> {
         self.0?;
-        let secs = if day == LocalDay::Today {
-            TODAY_TARGET
-        } else {
-            TOMORROW_TARGET
+        let secs = match day {
+            LocalDay::Today => TODAY_TARGET,
+            LocalDay::Tomorrow => TOMORROW_TARGET,
+            LocalDay::On(_) => DATED_TARGET,
         };
         Ok(WallInstant::since_epoch(Duration::from_secs(secs)))
     }
@@ -175,4 +177,56 @@ fn wake_time_of_a_time_of_day_follows_the_today_or_tomorrow_rule() {
         Ok(Some(instant(TOMORROW_TARGET)))
     );
     assert!(before.slept.borrow().is_empty() && after.slept.borrow().is_empty());
+}
+
+fn dated_schedule() -> Schedule {
+    Schedule::On(
+        CalendarDate::new(2999, 12, 31).unwrap(),
+        TimeOfDay::new(1, 23, 20).unwrap(),
+    )
+}
+
+#[test]
+fn dated_until_waits_for_the_date_in_slices() {
+    let timeline = Timeline::starting_at(4_000.0);
+    let calendar = FixedCalendar(Ok(()));
+    wait(dated_schedule(), &deps_of(&timeline, &calendar)).unwrap();
+    assert_eq!(total(&timeline), Duration::from_secs(1_000));
+    assert!(timeline
+        .slept
+        .borrow()
+        .iter()
+        .all(|slice| *slice <= MAX_SLICE));
+}
+
+#[test]
+fn dated_until_in_the_past_fails_without_sleeping() {
+    let timeline = Timeline::starting_at(5_001.0);
+    let calendar = FixedCalendar(Ok(()));
+    let result = wait(dated_schedule(), &deps_of(&timeline, &calendar));
+    assert_eq!(
+        result,
+        Err(Failure::UntilPassed(
+            CalendarDate::new(2999, 12, 31).unwrap(),
+            TimeOfDay::new(1, 23, 20).unwrap()
+        ))
+    );
+    assert!(timeline.slept.borrow().is_empty());
+}
+
+#[test]
+fn dry_run_of_a_dated_until_in_the_past_fails_too() {
+    let timeline = Timeline::starting_at(5_001.0);
+    let calendar = FixedCalendar(Ok(()));
+    assert!(wake_time(dated_schedule(), &deps_of(&timeline, &calendar)).is_err());
+}
+
+#[test]
+fn wake_time_of_a_dated_until_is_the_resolved_instant() {
+    let timeline = Timeline::starting_at(4_000.0);
+    let calendar = FixedCalendar(Ok(()));
+    assert_eq!(
+        wake_time(dated_schedule(), &deps_of(&timeline, &calendar)),
+        Ok(Some(instant(DATED_TARGET)))
+    );
 }

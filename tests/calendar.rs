@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use slp::calendar_date::CalendarDate;
 use slp::ports::{Calendar, LocalDay, WallInstant};
 use slp::system::LocalCalendar;
 use slp::time_of_day::TimeOfDay;
@@ -51,4 +52,20 @@ fn resolves_in_the_local_zone_including_dst_days() {
         resolve(LocalDay::Tomorrow, 12, 0, noon_new_york_mar_7),
         noon_new_york_mar_7 + DAY - 3600
     );
+
+    // An explicit date resolves independent of `around`, in the local zone with DST.
+    let mar_8 = CalendarDate::new(2026, 3, 8).unwrap();
+    assert_eq!(
+        resolve(LocalDay::On(mar_8), 12, 0, NOON_UTC),
+        noon_new_york_mar_7 + DAY - 3600
+    );
+    unsafe { std::env::set_var("TZ", "UTC") };
+    let leap_day = CalendarDate::new(2028, 2, 29).unwrap();
+    assert_eq!(
+        resolve(LocalDay::On(leap_day), 0, 0, NOON_UTC),
+        1_835_395_200 // 2028-02-29T00:00:00Z
+    );
+    // Dates before the epoch resolve to the epoch rather than failing.
+    let old = CalendarDate::new(1960, 1, 1).unwrap();
+    assert_eq!(resolve(LocalDay::On(old), 0, 0, NOON_UTC), 0);
 }

@@ -97,6 +97,35 @@ fn help_and_version_win_over_dry_run() {
 }
 
 #[test]
+fn dated_until_in_the_past_is_a_runtime_error_without_usage_hint() {
+    let out = slp(&["--until", "2020-01-01 00:00"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert_eq!(
+        text(&out.stderr),
+        "slp: --until 2020-01-01 00:00 has already passed\n"
+    );
+}
+
+#[test]
+fn dry_run_of_a_far_future_dated_until_is_deterministic() {
+    for target in ["2999-12-31 12:00", "2999-12-31T12:00:00"] {
+        let out = slp(&["-n", "--until", target]);
+        assert!(out.status.success(), "{}", text(&out.stderr));
+        assert_eq!(text(&out.stdout), "wake at 2999-12-31 12:00:00 +0000\n");
+    }
+}
+
+#[test]
+fn impossible_dates_are_usage_errors() {
+    let out = slp(&["--until", "2999-02-30 10:00"]);
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = text(&out.stderr);
+    assert!(stderr.contains("slp: invalid date and time '2999-02-30 10:00'"));
+    assert!(stderr.contains("Try 'slp --help'"));
+}
+
+#[test]
 fn bad_input_exits_one_with_a_message_on_stderr() {
     for (args, message) in [
         (vec![], "slp: missing operand"),

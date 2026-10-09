@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// A wall-clock time of day, validated: `00:00:00` through `23:59:59`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TimeOfDay {
@@ -45,9 +47,24 @@ impl TimeOfDay {
     }
 }
 
+/// `HH:MM`, with `:SS` only when seconds are non-zero.
+impl fmt::Display for TimeOfDay {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:02}:{:02}", self.hour, self.minute)?;
+        if self.second != 0 {
+            write!(f, ":{:02}", self.second)?;
+        }
+        Ok(())
+    }
+}
+
 fn field(text: &str) -> Option<u8> {
     let valid = matches!(text.len(), 1..=2) && text.bytes().all(|b| b.is_ascii_digit());
-    if valid { text.parse().ok() } else { None }
+    if valid {
+        text.parse().ok()
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

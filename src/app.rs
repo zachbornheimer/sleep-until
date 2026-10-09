@@ -14,16 +14,20 @@ const NEVER: &str = "never";
 const HELP: &str = "\
 Usage: slp NUMBER[SUFFIX]...
   or:  slp --until HH:MM[:SS]
-Pause for NUMBER seconds, or until the next local time HH:MM[:SS].
+  or:  slp --until 'YYYY-MM-DD HH:MM[:SS]'
+Pause for NUMBER seconds, or until a local time.
 
 SUFFIX may be 's' for seconds (the default), 'm' for minutes, 'h' for hours
 or 'd' for days. NUMBER may be a decimal number, or 'inf' to pause forever.
-Given multiple arguments, pause for the amount of time specified by the sum.
+Segments with suffixes may be joined, as in 1h30m. Given multiple arguments,
+pause for the amount of time specified by the sum.
 
 --until HH:MM[:SS] pauses until that local time of day: today if it has not
-passed yet, otherwise tomorrow. It cannot be combined with NUMBER arguments.
+passed yet, otherwise tomorrow. --until 'YYYY-MM-DD HH:MM[:SS]' (or with a 'T'
+between date and time) pauses until that local moment, and fails if it has
+already passed. --until cannot be combined with NUMBER arguments.
 
-      --until TIME  pause until TIME in local time
+      --until TIME  pause until TIME (or DATE TIME) in local time
   -n, --dry-run     print the local wake time ('wake at YYYY-MM-DD HH:MM:SS +ZZZZ',
                     or 'wake at never') and exit without pausing
       --help        display this help and exit
