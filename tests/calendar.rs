@@ -68,4 +68,13 @@ fn resolves_in_the_local_zone_including_dst_days() {
     // Dates before the epoch resolve to the epoch rather than failing.
     let old = CalendarDate::new(1960, 1, 1).unwrap();
     assert_eq!(resolve(LocalDay::On(old), 0, 0, NOON_UTC), 0);
+    // The second before the epoch is a real answer (`mktime` returns -1), not a failure.
+    let last_of_1969 = CalendarDate::new(1969, 12, 31).unwrap();
+    let time = TimeOfDay::new(23, 59, 59).unwrap();
+    let resolved = LocalCalendar.resolve(
+        LocalDay::On(last_of_1969),
+        time,
+        WallInstant::since_epoch(Duration::from_secs(NOON_UTC)),
+    );
+    assert_eq!(resolved.map(WallInstant::whole_seconds), Ok(0));
 }

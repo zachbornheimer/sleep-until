@@ -60,6 +60,11 @@ impl Calendar for LocalCalendar {
         }
         // SAFETY: `broken_down` is a fully initialized, exclusively borrowed `tm`.
         let resolved = unsafe { libc::mktime(&raw mut broken_down) };
+        let resolved = if resolved == MKTIME_FAILURE {
+            confirm_resolution(resolved, &broken_down, &local_broken_down(resolved)?)?
+        } else {
+            resolved
+        };
         // Before the epoch is simply long past: the epoch is a faithful stand-in.
         let secs = u64::try_from(resolved).unwrap_or_default();
         Ok(WallInstant::since_epoch(Duration::from_secs(secs)))
@@ -69,6 +74,30 @@ impl Calendar for LocalCalendar {
         let seconds =
             libc::time_t::try_from(at.whole_seconds()).map_err(|_| CalendarUnavailable)?;
         format_broken_down(&local_broken_down(seconds)?)
+    }
+}
+
+/// `mktime` returns this on failure, but it is also the real answer for 1969-12-31 23:59:59 UTC.
+const MKTIME_FAILURE: libc::time_t = -1;
+
+/// Tells a real `-1` from `mktime` failure: a real one is the moment the normalized
+/// `requested` time describes, and `at_minus_one` is the local time of second `-1`.
+fn confirm_resolution(
+    resolved: libc::time_t,
+    requested: &libc::tm,
+    at_minus_one: &libc::tm,
+) -> Result<libc::time_t, CalendarUnavailable> {
+    let same_moment = resolved != MKTIME_FAILURE
+        || (requested.tm_year == at_minus_one.tm_year
+            && requested.tm_mon == at_minus_one.tm_mon
+            && requested.tm_mday == at_minus_one.tm_mday
+            && requested.tm_hour == at_minus_one.tm_hour
+            && requested.tm_min == at_minus_one.tm_min
+            && requested.tm_sec == at_minus_one.tm_sec);
+    if same_moment {
+        Ok(resolved)
+    } else {
+        Err(CalendarUnavailable)
     }
 }
 
@@ -108,4 +137,41 @@ fn local_broken_down(seconds: libc::time_t) -> Result<libc::tm, CalendarUnavaila
     }
     // SAFETY: `localtime_r` returned non-null, so `slot` is initialized.
     Ok(unsafe { slot.assume_init() })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn wall_time(year: libc::c_int, second: libc::c_int) -> libc::tm {
+        // SAFETY: `tm` is plain data for which all-zero is a valid value.
+        let mut tm: libc::tm = unsafe { std::mem::zeroed() };
+        tm.tm_year = year;
+        tm.tm_mday = 1;
+        tm.tm_sec = second;
+        tm
+    }
+
+    #[test]
+    fn a_minus_one_that_matches_its_own_broken_down_time_is_a_real_result() {
+        let normalized = wall_time(69, 59);
+        assert_eq!(confirm_resolution(-1, &normalized, &normalized), Ok(-1));
+    }
+
+    #[test]
+    fn a_minus_one_that_does_not_match_is_a_failure() {
+        let requested = wall_time(8000, 0);
+        let at_minus_one = wall_time(69, 59);
+        assert_eq!(
+            confirm_resolution(-1, &requested, &at_minus_one),
+            Err(CalendarUnavailable)
+        );
+    }
+
+    #[test]
+    fn any_other_result_is_taken_as_is() {
+        let tm = wall_time(126, 0);
+        assert_eq!(confirm_resolution(1_000, &tm, &tm), Ok(1_000));
+        assert_eq!(confirm_resolution(-86_400, &tm, &tm), Ok(-86_400));
+    }
 }
