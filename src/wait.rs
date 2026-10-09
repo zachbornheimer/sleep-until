@@ -14,6 +14,9 @@ use crate::time_of_day::TimeOfDay;
 /// wall clock this often bounds how late `--until` can fire after a suspend.
 pub const MAX_SLICE: Duration = Duration::from_secs(30);
 
+/// The last second a signed 64-bit `time_t` can name; a later wake time is reported as never.
+const LATEST_SECOND: u64 = i64::MAX.unsigned_abs();
+
 pub struct Dependencies<'a> {
     pub clock: &'a dyn Clock,
     pub calendar: &'a dyn Calendar,
@@ -47,7 +50,11 @@ pub fn wait(schedule: Schedule, deps: &Dependencies) -> Result<(), Failure> {
 /// Fails only when a time of day cannot be resolved in the local time zone.
 pub fn wake_time(schedule: Schedule, deps: &Dependencies) -> Result<Option<WallInstant>, Failure> {
     match schedule {
-        Schedule::After(interval) => Ok(deps.clock.now().checked_after(interval)),
+        Schedule::After(interval) => Ok(deps
+            .clock
+            .now()
+            .checked_after(interval)
+            .filter(|wake| wake.whole_seconds() <= LATEST_SECOND)),
         Schedule::At(time) => next_occurrence(time, deps).map(Some),
         Schedule::On(date, time) => dated_target(date, time, deps).map(Some),
     }

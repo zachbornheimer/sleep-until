@@ -163,6 +163,23 @@ fn wake_time_of_forever_is_never() {
 }
 
 #[test]
+fn wake_time_beyond_the_largest_representable_instant_is_never() {
+    let timeline = Timeline::starting_at(100.0);
+    let calendar = FixedCalendar(Ok(()));
+    for secs in [
+        9_300_000_000_000_000_000,
+        10_000_000_000_000_000_000,
+        u64::MAX,
+    ] {
+        let target = wake_time(
+            Schedule::After(Duration::from_secs(secs)),
+            &deps_of(&timeline, &calendar),
+        );
+        assert_eq!(target, Ok(None), "{secs}");
+    }
+}
+
+#[test]
 fn wake_time_of_a_time_of_day_follows_the_today_or_tomorrow_rule() {
     let calendar = FixedCalendar(Ok(()));
     let schedule = Schedule::At(TimeOfDay::new(0, 16, 40).unwrap());
