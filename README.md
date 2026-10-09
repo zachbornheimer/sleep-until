@@ -97,7 +97,7 @@ wake at never
 ## Behavior notes
 
 - **Suspend.** Sleeping uses a clock that stops while the machine is suspended. For `--until`, `slp` re-reads the wall clock at least every 30 seconds (`MAX_SLICE` in `src/wait.rs`), so after a resume it fires within that bound of the target.
-- **Daylight saving.** The target time is resolved by the C library (`mktime`). The result for a time skipped or repeated by a clock change is whatever `mktime` returns.
+- **Daylight saving.** The target time is resolved by the C library (`mktime`). The result for a time skipped or repeated by a clock change is whatever `mktime` returns. This holds for dated `--until` too: a time that does not exist moves forward. With `TZ=America/New_York`, `slp -n --until "2027-03-14 02:30"` prints `wake at 2027-03-14 03:30:00 -0400`.
 - **Memory.** The only dependency is `libc`. `slp` starts no threads of its own, and the waiting code in `src/wait.rs` and `src/system.rs` does not allocate. On Apple Silicon, use a native Rust toolchain (`brew install rustup`). An emulated x86_64 toolchain roughly doubles resident memory, and `mise run doctor` flags it.
 - **Compared with `sleep`.** GNU `sleep` and the macOS `/bin/sleep` (checked on macOS 26: `sleep 1m` waits 60 seconds) already accept the `s m h d` suffixes. `slp` adds `--until` and `inf`; the macOS `sleep` rejects `inf` with a usage message.
 
