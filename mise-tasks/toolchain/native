@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#MISE description="Fail on an emulated Rust toolchain or an install bin missing from PATH"
+set -euo pipefail
+
+apple_silicon() {
+	[[ "$(uname -s)" == Darwin && "$(sysctl -n hw.optional.arm64 2>/dev/null || echo 0)" == 1 ]]
+}
+
+fail=0
+
+if apple_silicon; then
+	host="$(rustc -vV | sed -n 's/^host: //p')"
+	if [[ "$host" != aarch64-* ]]; then
+		echo "rustc targets $host on an Apple Silicon Mac (emulated; roughly doubles memory). Install a native rustup (brew install rustup) and run: rustup set default-host aarch64-apple-darwin" >&2
+		fail=1
+	fi
+fi
+
+install_bin="${SLP_INSTALL_ROOT:-$HOME/.local}/bin"
+case ":$PATH:" in
+*":$install_bin:"*) ;;
+*)
+	echo "$install_bin is not on PATH; slp will not be found" >&2
+	fail=1
+	;;
+esac
+
+exit "$fail"
