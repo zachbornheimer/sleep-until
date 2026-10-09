@@ -2,9 +2,9 @@
 name = "slp"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 rust-version = "1.85"
 description = "A memory-lean reimplementation of sleep with --until HH:MM"
-license = "MIT"
 
 [lib]
 name = "slp"
