@@ -12,6 +12,7 @@ pub enum Failure {
     InvalidDateTime(String),
     InvalidOption(String),
     MissingUntilValue,
+    MissingForValue,
     DuplicateUntil,
     UntilWithInterval,
     LocalTimeUnavailable,
@@ -46,6 +47,7 @@ impl fmt::Display for Failure {
             }
             Self::InvalidOption(text) => write!(f, "invalid option '{text}'"),
             Self::MissingUntilValue => write!(f, "option '--until' requires a time of day"),
+            Self::MissingForValue => write!(f, "option '--for' requires a time interval"),
             Self::DuplicateUntil => write!(f, "option '--until' given more than once"),
             Self::UntilWithInterval => {
                 write!(f, "'--until' cannot be combined with a time interval")
