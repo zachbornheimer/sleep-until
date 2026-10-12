@@ -75,6 +75,15 @@ fn dry_run_of_forever_prints_never_and_does_not_sleep() {
 }
 
 #[test]
+fn dry_run_for_matches_dry_run_of_the_same_interval() {
+    let positional = slp(&["--dry-run", "1h30m"]);
+    let named = slp(&["--dry-run", "--for", "1h30m"]);
+    assert!(positional.status.success(), "{}", text(&positional.stderr));
+    assert!(named.status.success(), "{}", text(&named.stderr));
+    assert_eq!(text(&named.stdout), text(&positional.stdout));
+}
+
+#[test]
 fn dry_run_of_an_interval_prints_the_local_wake_time_without_sleeping() {
     let started = Instant::now();
     let out = slp(&["--dry-run", "1h30m"]);
@@ -133,6 +142,11 @@ fn bad_input_exits_one_with_a_message_on_stderr() {
         (vec!["-1"], "slp: invalid option '-1'"),
         (vec!["--until", "25:00"], "slp: invalid time of day '25:00'"),
         (vec!["--until", "1:00", "5"], "cannot be combined"),
+        (vec!["--for"], "option '--for' requires a time interval"),
+        (
+            vec!["--for", "15m", "--until", "14:39"],
+            "cannot be combined",
+        ),
     ] {
         let out = slp(&args);
         assert_eq!(out.status.code(), Some(1), "{args:?}");

@@ -25,6 +25,7 @@ pub enum Request {
 }
 
 const UNTIL_FLAG: &str = "--until";
+const FOR_FLAG: &str = "--for";
 const DRY_RUN_FLAGS: [&str; 2] = ["-n", "--dry-run"];
 
 /// Turns the command line (without the program name) into a [`Request`].
@@ -55,6 +56,11 @@ pub fn parse_request(args: impl IntoIterator<Item = OsString>) -> Result<Request
             until = Some(set_until(until, &value)?);
         } else if let Some(value) = text.strip_prefix("--until=") {
             until = Some(set_until(until, OsString::from(value).as_os_str())?);
+        } else if text == FOR_FLAG {
+            let value = args.next().ok_or(Failure::MissingForValue)?;
+            total = Some(add_operand(total, &value)?);
+        } else if let Some(value) = text.strip_prefix("--for=") {
+            total = Some(add_operand(total, &OsString::from(value))?);
         } else {
             return Err(Failure::InvalidOption(text.into_owned()));
         }
@@ -110,6 +116,53 @@ mod tests {
     fn operands_are_summed() {
         assert_eq!(parse(&["1m", "30"]), Ok(after(90)));
         assert_eq!(parse(&["--", "2"]), Ok(after(2)));
+    }
+
+    #[test]
+    fn for_accepts_both_spellings() {
+        assert_eq!(parse(&["--for", "15m"]), Ok(after(900)));
+        assert_eq!(parse(&["--for=15m"]), Ok(after(900)));
+    }
+
+    #[test]
+    fn for_adds_with_positional_intervals() {
+        assert_eq!(parse(&["--for", "1h", "30m"]), Ok(after(5400)));
+        assert_eq!(parse(&["30m", "--for", "1h"]), Ok(after(5400)));
+        assert_eq!(parse(&["--for", "1h", "--for", "30m"]), Ok(after(5400)));
+        assert_eq!(parse(&["--for=1h", "--for=30m"]), Ok(after(5400)));
+    }
+
+    #[test]
+    fn for_missing_value_is_a_usage_error() {
+        assert_eq!(parse(&["--for"]), Err(Failure::MissingForValue));
+    }
+
+    #[test]
+    fn for_with_until_is_until_with_interval() {
+        assert_eq!(
+            parse(&["--for", "15m", "--until", "14:39"]),
+            Err(Failure::UntilWithInterval)
+        );
+        assert_eq!(
+            parse(&["--until", "14:39", "--for=15m"]),
+            Err(Failure::UntilWithInterval)
+        );
+    }
+
+    #[test]
+    fn dry_run_wraps_for() {
+        assert_eq!(
+            parse(&["-n", "--for", "1h30m"]),
+            Ok(Request::DryRun(Schedule::After(Duration::from_secs(5400))))
+        );
+    }
+
+    #[test]
+    fn for_after_end_of_options_is_an_operand() {
+        assert_eq!(
+            parse(&["--", "--for"]),
+            Err(Failure::InvalidInterval("--for".into()))
+        );
     }
 
     #[test]
@@ -183,6 +236,8 @@ mod tests {
     fn usage_failures() {
         assert_eq!(parse(&[]), Err(Failure::MissingOperand));
         assert_eq!(parse(&["--until"]), Err(Failure::MissingUntilValue));
+        assert_eq!(parse(&["--for"]), Err(Failure::MissingForValue));
+        assert_eq!(parse(&["--for="]), Err(Failure::InvalidInterval("".into())));
         assert_eq!(parse(&["-1"]), Err(Failure::InvalidOption("-1".into())));
         assert_eq!(
             parse(&["--bogus"]),

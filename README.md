@@ -38,6 +38,8 @@ mise install   # installs the Rust toolchain, then builds and installs slp
 | `slp 1d`                         | Pause 1 day.                                           |
 | `slp 1h30m`                      | Pause 1 hour 30 minutes. Also `2m30s`, `1.5h`.         |
 | `slp inf`                        | Pause forever.                                         |
+| `slp --for 15m`                  | Pause 15 minutes. Same grammar as NUMBER operands.     |
+| `slp --for=1h 30m`               | Pause 90 minutes. `--for` and NUMBER operands add.     |
 | `slp --until 14:39`              | Pause until 14:39 local time.                          |
 | `slp --until 7:05:30`            | Pause until 07:05:30 local time.                       |
 | `slp --until=14:39`              | Same as `--until 14:39`.                               |
@@ -57,7 +59,8 @@ Rules:
 - `--until` takes `HH:MM` or `HH:MM:SS` in 24-hour local time, with one or two digits per field. If that time has already passed today, `slp` waits for tomorrow.
 - `--until 'YYYY-MM-DD HH:MM[:SS]'` waits for that local moment. A `T` can replace the space before the time. A target in the past is an error.
 - `-n` / `--dry-run` prints `wake at YYYY-MM-DD HH:MM:SS +ZZZZ` (or `wake at never` for `inf`) and exits 0 without sleeping. `--help` and `--version` win.
-- `--until` cannot be combined with intervals and cannot be given twice.
+- `--until` cannot be combined with intervals or `--for` and cannot be given twice.
+- `--for` is the named spelling of a duration. Multiple `--for` values add, and they add with NUMBER operands. There is no short `-f`. After `--`, `--for` is an operand.
 
 ## Exit status and errors
 
